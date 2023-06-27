@@ -1,0 +1,41 @@
+spring:
+  data:
+    mongodb:
+      uri: mongodb+srv://KhoiMai:Meobaymau@cluster0.0asjcnn.mongodb.net/java-project
+      database: java-project
+      auto-index-creation: true
+  security:
+    oauth2:
+      client:
+        registration:
+          facebook:
+            client-id: 982045076452169
+            client-secret: 6bdce1e5691d37856181f92ac9cb047f
+            redirectUri: "{baseUrl}/oauth2/callback/{registrationId}"
+        provider:
+          facebook:
+            authorizationUri: https://www.facebook.com/v3.0/dialog/oauth
+            tokenUri: https://graph.facebook.com/v3.0/oauth/access_token
+            userInfoUri: https://graph.facebook.com/v3.0/me?fields=id,name,email,verified,picture
+
+app:
+  cors:
+    allowedOrigins: http://localhost:3000
+  auth:
+    tokenSecret: 472B4B6250655367566B5970337336763979244226452948404D635166546A57
+    tokenExpirationMsec: 864000000
+  oauth2:
+    # After successfully authenticating with the OAuth2 Provider,
+    # we'll be generating an auth token for the user and sending the token to the
+    # redirectUri mentioned by the client in the /oauth2/authorize request.
+    # We're not using cookies because they won't work well in mobile clients.
+    authorizedRedirectUris:
+      - http://localhost:3000/oauth2/redirect
+      - myandroidapp://oauth2/redirect
+      - myiosapp://oauth2/redirect
+server:
+  ssl:
+    key-alias: spring_security
+    key-store: classpath:spring_security.jks
+    key-store-password: spring_security
+    key-store-type: JKS
