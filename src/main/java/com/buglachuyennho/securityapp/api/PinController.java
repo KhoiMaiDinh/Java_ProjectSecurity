@@ -1,6 +1,7 @@
 package com.buglachuyennho.securityapp.api;
 
 import com.buglachuyennho.securityapp.domain.Pin;
+import com.buglachuyennho.securityapp.domain.Save;
 import com.buglachuyennho.securityapp.domain.User;
 import com.buglachuyennho.securityapp.exception.ResourceNotFoundException;
 import com.buglachuyennho.securityapp.repo.PinRepo;
@@ -98,11 +99,38 @@ public class PinController {
         return ResponseEntity.ok().body(response);
     }
 
-    @GetMapping("/{userId}")
+    @GetMapping("/{userId}/created")
     public ResponseEntity<?> getPinsByUserId(@PathVariable String userId) throws IOException {
         Query query = new Query();
         query.addCriteria(Criteria.where("userId").is(userId));
         List<Pin> pinList = mongoTemplate.find(query, Pin.class);
-        return ResponseEntity.ok().body(pinList);
+        List<Object> response = new ArrayList<>();
+        for (Pin pin : pinList) {
+            User user = userRepo.findById(pin.getUserId()).get();
+
+            Map<String, Object> pinUserMap = new HashMap<>();
+            pinUserMap.put("pin", pin);
+            pinUserMap.put("user", user);
+            response.add(pinUserMap);
+        }
+        return ResponseEntity.ok().body(response);
+    }
+
+    @GetMapping("/{userId}/save")
+    public ResponseEntity<?> getPinSavedByUserId(@PathVariable String userId) throws IOException{
+        Query query = new Query();
+        query.addCriteria(Criteria.where("userId").is(userId));
+        List<Save> saveList = mongoTemplate.find(query, Save.class);
+        List<Object> response = new ArrayList<>();
+        for (Save save : saveList) {
+            Pin pin = pinRepo.findById(save.getPinId()).get();
+            User user = userRepo.findById(pin.getUserId()).get();
+
+            Map<String, Object> pinUserMap = new HashMap<>();
+            pinUserMap.put("pin", pin);
+            pinUserMap.put("user", user);
+            response.add(pinUserMap);
+        }
+        return ResponseEntity.ok().body(response);
     }
 }

@@ -21,6 +21,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import java.io.IOException;
 import java.net.URI;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -53,41 +54,37 @@ public class CustomOAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHa
                 .withIssuer(request.getRequestURL().toString())
                 .withClaim("roles", user.getAuthorities().stream().map(GrantedAuthority::getAuthority).collect(Collectors.toList()))
                 .sign(algorithm);
+
+        // Get the current date
+        Calendar currentDate = Calendar.getInstance();
+
+        // Add 1 month to the current date
+        currentDate.add(Calendar.MONTH, 1);
+
+        // Get the updated date
+        Date updatedDate = currentDate.getTime();
         String refresh_token = JWT.create()
                 .withSubject(user.getUsername())
-                .withExpiresAt(new Date(System.currentTimeMillis() + 86400000))
+                .withExpiresAt(updatedDate)
                 .withIssuer(request.getRequestURL().toString())
                 .withClaim("roles", user.getAuthorities().stream().map(GrantedAuthority::getAuthority).collect(Collectors.toList()))
                 .sign(algorithm);
         response.setHeader("access_token", access_token);
         response.setHeader("refresh_token", refresh_token);
-//        Map<String, Object> responseMap = new HashMap<>();
-//        responseMap.put("access_token", access_token);
-//        responseMap.put("user", user);
-        //tokens.put("refresh_token", refresh_token);
 
-        // Add a session cookie
-        Cookie sessionCookie = new Cookie( "java_jwt", refresh_token);
-        sessionCookie.setMaxAge(60 * 60 * 24 * 30 * 6);
-        sessionCookie.setHttpOnly(true);
-        sessionCookie.setSecure(true);
-        sessionCookie.setDomain(".localhost:8080");
-
-        String targetUrl = determineTargetUrl(request, response, authentication, access_token);
+        String targetUrl = determineTargetUrl(request, response, authentication, access_token, refresh_token);
 
         if (response.isCommitted()) {
             logger.debug("Response has already been committed. Unable to redirect to " + targetUrl);
             return;
         }
-        System.out.println(sessionCookie);
         clearAuthenticationAttributes(request, response);
-//        response.addCookie( sessionCookie );
         response.sendRedirect(targetUrl);
 
-//        response.setContentType(APPLICATION_JSON_VALUE); zz
+//        response.setContentType(APPLICATION_JSON_VALUE);
     }
 
-    protected String determineTargetUrl(HttpServletRequest request, HttpServletResponse response, Authentication authentication, String accessToken) {
+    protected String determineTargetUrl(HttpServletRequest request, HttpServletResponse response, Authentication authentication, String accessToken, String refresh_token) {
         Optional<String> redirectUri = CookieUtils.getCookie(request, REDIRECT_URI_PARAM_COOKIE_NAME)
                 .map(Cookie::getValue);
 
@@ -101,6 +98,7 @@ public class CustomOAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHa
 
         return UriComponentsBuilder.fromUriString(targetUrl)
                 .queryParam("access_token", accessToken)
+                .queryParam("refresh_token", refresh_token)
                 .build().toUriString();
     }
 
@@ -126,3 +124,5 @@ public class CustomOAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHa
                 });
     }
 }
+
+

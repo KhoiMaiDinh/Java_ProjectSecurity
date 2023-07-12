@@ -24,7 +24,6 @@ import static org.springframework.security.config.http.SessionCreationPolicy.*;
 
 @Configuration
 @EnableWebSecurity
-//@RequiredArgsConstructor
 public class SecurityConfig {
 
     @Autowired
@@ -42,12 +41,14 @@ public class SecurityConfig {
     public HttpCookieOAuth2AuthorizationRequestRepository cookieAuthorizationRequestRepository() {
         return new HttpCookieOAuth2AuthorizationRequestRepository();
     }
+
+    // cors config
     @Bean
     public CorsFilter corsFilter() {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowCredentials(true);
-        config.addAllowedOrigin("http://localhost:3000");  // TODO: lock down before deploying
+        config.addAllowedOrigin("https://localhost:3000");
         config.addAllowedHeader("*");
         config.addExposedHeader(HttpHeaders.AUTHORIZATION);
         config.addAllowedMethod("*");
@@ -58,17 +59,16 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        http.cors();
-        http.csrf().disable();
-//        http.csrf().csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse());
-        http.sessionManagement().sessionCreationPolicy(STATELESS);
+        http.cors(); // enables Cross-Origin Resource Sharing
+        http.csrf().disable(); // disables Cross-Site Request Forgery (enable if needed)
+        http.sessionManagement().sessionCreationPolicy(STATELESS); //  sets the session creation policy to STATELESS. In a stateless application, session management is not needed
 
-        http.authorizeHttpRequests().requestMatchers("/api/login/**", "/api/v1/token/refresh/**", "/api/v1/register/**", "/oauth2/**").permitAll();
+        http.authorizeHttpRequests().requestMatchers("/api/login/**", "/api/v1/token/refresh/**", "/api/v1/register/**", "/oauth2/**").permitAll(); // permits access to specific paths without authentication
 
-        http.authorizeHttpRequests().requestMatchers("/api/user/**").hasAnyAuthority("ROLE_USER");
-        http.authorizeHttpRequests().anyRequest().authenticated();
-        http.apply(customDsl());
-        http.oauth2Login()
+        http.authorizeHttpRequests().requestMatchers("/api/user/**").hasAnyAuthority("ROLE_USER"); // restricts access to the "/api/user/**" path to only users with the "ROLE_USER" authority
+        http.authorizeHttpRequests().anyRequest().authenticated(); // requires authentication for all other endpoints or paths.
+        http.apply(customDsl()); // applies additional custom security configurations(authentication and authorization) based on the defined DSL.
+        http.oauth2Login() // oauth2 login configuration
                 .authorizationEndpoint(authorization -> authorization
                         .baseUri("/oauth2/authorize")
                         .authorizationRequestRepository(cookieAuthorizationRequestRepository()))

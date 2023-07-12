@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import static org.springframework.http.HttpStatus.FORBIDDEN;
+import static org.springframework.http.HttpStatus.UNAUTHORIZED;
 import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
 
 @Slf4j
@@ -47,23 +48,42 @@ public class AuthenticationController {
         String SECRET_KEY = "472B4B6250655367566B5970337336763979244226452948404D635166546A57";
         Cookie[] cookies =  request.getCookies();
         String Jwt = "";
+        // get jwt_java(refresh_token) if exists
         if (cookies != null) {
             for (Cookie cookie : cookies) {
                 if (cookie.getName().equals("java_jwt")) {
                     log.info(cookie.getValue());
-                    Jwt =  cookie.getValue();
+                    Jwt = cookie.getValue();
                 }
             }
         }
+        // generate new access_token if refresh_token exists
         if (Jwt.length() > 0 ) {
             try {
                 String refresh_token = Jwt;
                 log.info(refresh_token);
+                // decode refresh_token
                 Algorithm algorithm = Algorithm.HMAC256(SECRET_KEY.getBytes());
                 JWTVerifier verifier = JWT.require(algorithm).build();
                 DecodedJWT decodedJWT = verifier.verify(refresh_token);
+
+                // get and check if refresh_token expire
+                Date expireTime = decodedJWT.getExpiresAt();
+                Date currentTime = new Date();
+                if (currentTime.after(expireTime)) {
+                    response.setHeader("error", "token expire");
+                    response.setStatus(UNAUTHORIZED.value());
+                    Map<String, String> errors = new HashMap<>();
+                    errors.put("error_message", "Your working session has finish, please login to continue");
+                    response.setContentType(APPLICATION_JSON_VALUE);
+                    new ObjectMapper().writeValue(response.getOutputStream(), errors);
+                    return;
+                }
+                // get user from UserService
                 String username = decodedJWT.getSubject();
                 User user = userService.getUser(username);
+
+                // generate new token and send to client
                 String access_token = JWT.create()
                         .withSubject(user.getUsername())
                         .withExpiresAt(new Date(System.currentTimeMillis() + 10 * 60 * 1000))
@@ -77,13 +97,19 @@ public class AuthenticationController {
                 new ObjectMapper().writeValue(response.getOutputStream(), tokens);
             } catch (Exception exception) {
                 response.setHeader("error", exception.getMessage());
-                response.setStatus(FORBIDDEN.value());
+                response.setStatus(UNAUTHORIZED.value());
                 Map<String, String> errors = new HashMap<>();
                 errors.put("error_message", exception.getMessage());
                 response.setContentType(APPLICATION_JSON_VALUE);
                 new ObjectMapper().writeValue(response.getOutputStream(), errors);
             }
         } else {
+            response.setHeader("error", "Refresh token is missing");
+            response.setStatus(UNAUTHORIZED.value());
+            Map<String, String> errors = new HashMap<>();
+            errors.put("error_message", "Refresh token is missing");
+            response.setContentType(APPLICATION_JSON_VALUE);
+            new ObjectMapper().writeValue(response.getOutputStream(), errors);
             throw new RuntimeException("Refresh token is missing");
         }
     }
@@ -92,6 +118,15 @@ public class AuthenticationController {
     public @ResponseBody CsrfToken getCsrfToken(HttpServletRequest request) {
         CsrfToken csrf = (CsrfToken) request.getAttribute(CsrfToken.class.getName());
         return csrf;
+    }
+
+    @GetMapping("logout")
+    public @ResponseBody void logOut(HttpServletRequest request, HttpServletResponse response) {
+        Cookie cookie = new Cookie("java_jwt", null);
+        cookie.setMaxAge(0);
+        cookie.setPath("/"); // Set the path of the cookie you want to delete
+
+        response.addCookie(cookie);
     }
 }
 
